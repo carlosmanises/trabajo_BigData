@@ -1,0 +1,1500 @@
+---
+title: <FONT COLOR="Orange">"OECD **Better Life** Index"</FONT>
+subtitle: "Juan Carlos García Guardeño (garguar2@alumni.uv.es)"  #- pongo tú nombre ahí para q aparezca más grande q el de la UV
+author: "Universitat de València"
+date: "Diciembre de 2020 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    #css: "./assets/my_css_file.css"
+    theme: paper
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library(klippy)  #- remotes::install_github("rlesur/klippy")
+library(knitr)
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 7/9, out.width = "60%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+<hr class="linea-black">
+
+<div style="text-align: justify">
+
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2020-2021. El repo del trabajo está [aquí](https://github.com/carlosmanises/trabajo_BigData){target="_blank"}. La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-20-21-web/07-trabajos.html){target="_blank"}.
+<div/>
+<!-- El párrafo de arriba has de dejarlo casi igual, 
+        solo HAS de SUSTITUIR las 2 veces que aparece "perezp44" por tu usuario de Github-->
+
+<hr class="linea-red">
+
+# <FONT COLOR="Orange">1. Introducción </FONT>
+
+<div style="text-align: justify">
+
+Si preguntaramos a cualquier persona "entendida" en economía sobre como poder determinar el nivel de desarrollo de los países, nos remitiría casi con total seguridad al PIB de cada uno de éstos. Podemos definir el PIB per capita como *la relación entre el valor total de todos los bienes y servicios finales generados durante un año por la economía de una nación o estado y el número de sus habitantes en ese año*^[definición sacada de la wikipedia.]. Este instrumento ha sido, durante décadas, el más utilizado por los economistas para estudiar la evolución económica de los países.
+
+¿Pero es capaz de medir el PIB per cápita, por si solo, el grado de desarrollo de un país y el bienestar de sus habitantes? Hoy en día existe un consenso entre los principales economistas (Joseph Stiglitz, Amartya Sen, Jean-Paul Fitoss, etc.) sobre la poca fiabilidad del PIB como indicador único para medir el progreso económico y social de una nación. 
+
+**El Índice para una Vida Mejor** (en inglés, Better Life Index, o BLI) es un índice económico-social creado por la OCDE en 2011. Este índice permite a las personas comparar el nivel de desarrollo de los países que integran la OCDE a través de 11 criterios considerados como esenciales para el bienestar de la población.
+
+Esta iniciativa se apoya en el informe de la Comisión Stiglitz-Sen-Fitoussi sobre la medición del rendimiento económico y del progreso social. Si alguien está interesado en saber las principales recomendaciones del informe puede verlas 
+ [aquí](https://www.diariolibre.com/opinion/medir-nuestras-vidas-las-limitaciones-del-pib-como-indicador-de-progreso-LJDL769211).
+ 
+El Índice, como hemos dicho anteriormente, comprende los 34 países miembros de la Organización para la Cooperación y el Desarrollo Económicos (OCDE) –la cual reúne a la mayoría de las economías desarrolladas del mundo y varias economías emergentes–, y algunos más.
+
+```{r eval = TRUE, echo = FALSE}
+library("vembedr")
+embed_url("https://www.youtube.com/watch?v=dFp7i7ALM_I")
+```
+
+En este trabajo vamos a reducir el círculo de países que integran este índice, a los países europeos que son miembros de la OCDE para que las gráficas sea más simples y podamos observar mejor los datos. Compararemos el nivel de ingresos de los ciudadanos de los países con otros indicadores (educación, nivel de empleo,satisfacción ante la vida,...etc.) de este índice para ver si existe una relación econónomica entre ellos, es decir, si aquellos países más ricos, tienen mayores niveles de bienestar social y económico.<div/>
+
+# <FONT COLOR="Orange">2. Datos </FONT>
+
+```{r eval = TRUE, echo = FALSE}
+knitr::include_graphics(here::here("imagenes", "betterlifeindex.jpg")  )
+```
+
+<div style="text-align: justify">Obtener los datos es una tarea relativamente sencilla. Accediendo a la página web del proyecto [betterlifeindex](http://www.oecdbetterlifeindex.org/es/#/11111111111), se puede descargar fácilmente los datos, entrando en la sección [descarga los datos del índice.](https://stats.oecd.org/Index.aspx?DataSetCode=BLI)
+
+<div/>
+
+```{r, eval = TRUE}
+#Cargo los paquetes
+library(tidyverse)
+library(klippy)  
+library(knitr)
+library(tibble)
+library(ggthemes)
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+library(ggrepel)
+library(sf)
+library(ggspatial)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(pjpv2020.01)
+library(plotly)
+library(gganimate)
+library (gifski)
+library(gt)
+library(kableExtra)
+library(DT)
+library(rio)
+library(leaflet) 
+library(leafem)
+library(formattable)
+library(lubridate)
+library(echarts4r)
+
+#Cargo los datos previamente descargados de la página de la OCDE
+df <- rio::import("./datos/calidadvida2.xlsx")
+
+#Fijo los nombres de las columnas
+names(df)[1] <- "Paises"
+names(df)[2] <- "Vivienda_sin_instalaciones_basicas"
+names(df)[3] <- "Gasto_en_vivienda"
+names(df)[4] <- "Habitaciones_por_persona"
+names(df)[5] <- "Ingreso_familiar_disponible"
+names(df)[6] <- "Patrimonio_familia"
+names(df)[7] <- "Inseguridad_en_empleo"
+names(df)[8] <- "Tasa_empleo"
+names(df)[9] <- "Tasa_empleo_LP"
+names(df)[10] <- "Ingresos_personales"
+names(df)[11] <- "Calidad_apoyo_social"
+names(df)[12] <- "Nivel_educacion"
+names(df)[13] <- "Habilidades_de_estudiantes"
+names(df)[14] <- "Años_de_educación"
+names(df)[15] <- "Contaminacion_aire"
+names(df)[16] <- "Calidad_agua"
+names(df)[17] <- "Participacion_regulaciones"
+names(df)[18] <- "Participacion_electoral"
+names(df)[19] <- "Esperanza_vida"
+names(df)[20] <- "Salud"
+names(df)[21] <- "Satisfaccion_vida"
+names(df)[22] <- "Seguridad_caminar_solos_noche"
+names(df)[23] <- "Tasa_homicidios"
+names(df)[24] <- "Empleados_trabajan_muchas"
+names(df)[25] <- "Tiempo_ocio"
+
+#Elimino los países que no son de la OCDE y la primera columna porque ya no los necesito.
+df1 <- df %>% slice(2:39)
+
+#Compruebo la estructura de datos de mi tabla para ver si son datos númericos y puedo trabajar con ellos
+str(df1)
+
+#Transformo los datos (a datos numéricos) para poder trabajar con ellos.
+#Da warnings porque la tabla no contiene algunos datos para algunos países. Quiere decir que donde
+#haya datos, pondrá NA´s.
+df2 <- df1 %>% mutate(Vivienda_sin_instalaciones_basicas = as.numeric(Vivienda_sin_instalaciones_basicas))
+df3 <- df2 %>% mutate(Gasto_en_vivienda = as.numeric(Gasto_en_vivienda))
+df4 <- df3 %>% mutate(Habitaciones_por_persona = as.numeric(Habitaciones_por_persona))
+df5 <- df4 %>% mutate(Ingreso_familiar_disponible = as.numeric(Ingreso_familiar_disponible))
+df6 <- df5 %>% mutate(Patrimonio_familia = as.numeric(Patrimonio_familia))
+df7 <- df6 %>% mutate(Inseguridad_en_empleo = as.numeric(Inseguridad_en_empleo))
+df8 <- df7 %>% mutate(Tasa_empleo = as.numeric(Tasa_empleo))
+df9 <- df8 %>% mutate(Nivel_educacion = as.numeric(Nivel_educacion))
+df10 <- df9 %>% mutate(Habilidades_de_estudiantes = as.numeric(Habilidades_de_estudiantes))
+df11 <- df10 %>% mutate(Años_de_educación = as.numeric(Años_de_educación))
+df12 <- df11 %>% mutate(Contaminacion_aire = as.numeric(Contaminacion_aire))
+df13 <- df12 %>% mutate(Calidad_agua = as.numeric(Calidad_agua))
+df14 <- df13 %>% mutate(Participacion_regulaciones = as.numeric(Participacion_regulaciones))
+df15 <- df14 %>% mutate(Participacion_electoral = as.numeric(Participacion_electoral))
+df16 <- df15 %>% mutate(Esperanza_vida = as.numeric(Esperanza_vida))
+df17 <- df16 %>% mutate(Salud = as.numeric(Salud))
+df18 <- df17 %>% mutate(Satisfaccion_vida = as.numeric(Satisfaccion_vida))
+df19 <- df18 %>% mutate(Seguridad_caminar_solos_noche = as.numeric(Seguridad_caminar_solos_noche))
+df20 <- df19 %>% mutate(Tasa_homicidios = as.numeric(Tasa_homicidios))
+df21 <- df20 %>% mutate(Empleados_trabajan_muchas = as.numeric(Empleados_trabajan_muchas))
+df22 <- df21 %>% mutate(Tiempo_ocio = as.numeric(Tiempo_ocio))
+df23 <- df22 %>% mutate(Tasa_empleo_LP = as.numeric(Tasa_empleo_LP))
+df24 <- df23 %>% mutate(Ingresos_personales = as.numeric(Ingresos_personales))
+df25 <- df24 %>% mutate(Calidad_apoyo_social = as.numeric(Calidad_apoyo_social))
+
+#Compruebo que todo haya salido bien.
+str(df25)
+
+#Elimino todos los países que no esten en la UE a excepción de UK y la media de la ODCE que me servirá para comparar.
+df_<- df25 %>% filter(Paises %in% c("Austria","Belgium","Bulgaria","Croatia",
+                                  "Czech Republic","Denmark","Estonia","Finland","France",
+                                  "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                  "Lithuania","Luxembourg","Netherlands","Poland",
+                                  "Portugal","Slovak Republic","Slovenia","Spain",
+                                  "Sweden","United Kingdom","Switzerland","OECD - Total"))
+
+#Guardo lo hecho para no tener que volverlo a hacer en cada chuck.
+export(df_, "./datos/calidadvida_definitivo.csv")   # comma-separated values
+
+```
+
+# <FONT COLOR="Orange"> 2.1. Procesando los datos </FONT>
+
+<div style="text-align: justify">
+
+El procesamiento de los datos como tal ha quedado reflejado en el anterior apartado pero me gustaría hacer un breve resumen del mismo aquí:
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+1. Exportar el archivo descargado de la web.
+2. Definir el nombre de las columnas.
+3. Selecciono los países pertenecientes a la OCDE como primer filtro.
+4. Comprueblo la estructura de los datos para ver si puedo trabajarlos.
+5. Al ver que no son númericos, los tengo que transformar.
+6. Filtro uno a uno los países objeto del estudio.
+7. Para no hacer todo este proceso a menudo, decido importar los datos finales en un archivo que iré cargando en adelante.
+
+Tras todo este largo proceso, mi tabla maestra de datos queda finalizada. En este caso he optado por hacerla interactiva por si alguna persona está interesada en descargar los datos.
+
+</div>
+```{r, eval = TRUE, echo = FALSE}
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+df_tabla_interactiva <- df_ 
+
+df_tabla_interactiva %>% DT::datatable(extensions = 'Buttons', 
+                                                 options = list(dom = 'Blfrtip', 
+                                                                buttons = c('copy', 'csv', 'excel', 'pdf', 'print'), 
+                                                                pageLength = 5, autoWidth = TRUE )) %>% formatStyle (
+                                                                  'Satisfaccion_vida', 
+                                                                  backgroundColor = '#F59985', ) 
+```
+
+
+# <FONT COLOR="Orange"> 3. Estructura de datos del informe. </FONT>
+
+<div style="text-align: justify">
+
+**El Índice para una Vida Mejor** analiza *11 variables* que la OCDE ha considerado fundamentales para las condiciones de vida de las personas. A su vez dentro de estas variables se analizan distintos *indicadores* que sirven para evaluar dicha variable en cada uno de los países objeto de este índice.
+
+La estructura de los datos analizados, de forma esquemática, es la siguiente:
+
+1. Vivienda:
+- Gasto en Vivienda
+- Vivienda con instalaciones básicas
+- Habitaciones por persona
+2. Ingresos
+- Patrimonio familiar netos
+- Ingresos familiar disponible
+3. Empleo
+- Ingresos personales
+- Seguridad en el empleo
+- Tasa de empleo a LP
+- Tasa de empleo
+4. Comunidad
+- Calidad de apoyo social
+5. Educación
+- Años de educación
+- Competencias de los estudiantes
+- Nivel de educación.
+6. Medio Ambiente
+- Calidad del agua
+- Contaminación del aire
+7. Compromiso cívico
+- Participación electoral
+- Participación de los interesados en la elaboración de regulaciones
+8. Salud
+- Esperanza de vida
+- Salud, según las personas
+9. Satisfación ante la vida
+10. Seguridad
+- Tasa de homicidios 
+- Sentimiento de seguridad al caminar solos por la noche
+11. Balance vida-trabajo
+- Tiempo destinado al ocio
+- Empleados que trabajan muchas horas
+
+<div/>
+
+# <FONT COLOR="Orange"> 4. Índice para una vida mejor. </FONT>
+
+<div style="text-align: justify">
+
+Pasamos a analizar ahora alguna de las variables representadas en el esquema anterior para los países europeos.
+
+La estructura del análisis será simple y repetida para cada variable analizada. Estudiaremos un indicador (ver esquema anterior) en cada una de ellas y lo relacionaremos con los ingresos personales de cada una de los países. Posteriormente construiremos una tabla, un gráfico,un mapa y el chunk con el lenguaje utilizado.
+
+El objetivo prioritario de este trabajo es comprobar si estas variables están relacionadas directamente con los ingresos. Es decir, los países más ricos siempre tendrán valores más altos en las variables analizadas (gasto en vivienda, bienestar, empleo, ..., etc.).
+
+<div/>
+
+
+## <FONT COLOR="Orange"> 4.1. Vivienda: Gasto en Vivienda </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.1.1. Tabla datos. </FONT>
+
+La vivienda es un bien de primera necesidad y un derecho fundamental en la mayoría de las sociedades desarrolladas de nuestro entorno. Es una obviedad decir que si el gasto en vivienda es demasiado grande, en función de los ingresos, los individuos que integran una sociedad vivirán peor porque no podrán destinar esos ingresos a otras actividades que le reportarían mayor felicidad.
+
+Si observamos la tabla, los ciudadanos de países como Reino Unido, República Checa, Italia o Grecia, gastan demasiado porcentaje de sus ingresos en vivienda. 
+
+Por el otro lado, los ciudadanos de Suecia, Holanda, Estonia y Eslovenia están en una posición mejor, en este indicador, que sus vecinos europeos.
+
+Por lo que respecta a los españoles, podemos decir que nos encontramos muy cerca de la media de la OCDE en lo que respecta al porcentaje de renta que dedicamos a la vivienda.
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+dfviv1 <- df_ %>% select(Paises,Gasto_en_vivienda,Ingresos_personales) %>% arrange(desc(Gasto_en_vivienda)) 
+
+dfviv1 <- na.omit(dfviv1)
+
+knitr::kable(dfviv1, format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
+
+
+### <FONT COLOR="Orange"> 4.1.2. Gráfica. </FONT>
+
+En el análisis gráfico hemos relacionado los ingresos de los ciudadanos de cada país con el porcentaje que gastan en vivienda, con el objetivo de estudiar si hay algún tipo de relación. 
+
+Como podemos comprobar visualmente, no la hay. 
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv") #exporto los datos
+
+dfviv1 <- df_ %>% select(Paises,Gasto_en_vivienda,Ingresos_personales) #Gasto en vivienda
+
+dfviv1 <- na.omit(dfviv1)#elimino a los paises que no tengan datos
+
+ggplot(dfviv1, aes(Ingresos_personales, Gasto_en_vivienda, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(dfviv1, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(dfviv1, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y gasto en vivienda" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Gasto en vivienda (en porcentaje)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_minimal()
+``` 
+
+                 
+### <FONT COLOR="Orange"> 4.1.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa, queda de la siguiente manera:
+
+```{r eval = TRUE, echo = FALSE}
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,dfviv1, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Gasto_en_vivienda) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Gasto_en_vivienda",
+       x=NULL,
+       y=NULL,
+       title="Gasto en vivienda (en porcentaje) en Europa",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+
+``` 
+
+### <FONT COLOR="Orange"> 4.1.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+dfviv1 <- df_ %>% select(Paises,Gasto_en_vivienda,Ingresos_personales) %>% arrange(desc(Ingresos_personales)) 
+
+dfviv1 <- na.omit(dfviv1)
+
+knitr::kable(dfviv1, format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+#Así he hecho el gráfico
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv") 
+
+dfviv1 <- df_ %>% select(Paises,Gasto_en_vivienda,Ingresos_personales) 
+
+dfviv1 <- na.omit(dfviv1)
+
+ggplot(dfviv1, aes(Ingresos_personales, Gasto_en_vivienda, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(dfviv1, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(dfviv1, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y gasto en vivienda" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Gasto en vivienda (en porcentaje)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_minimal()
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,dfviv1, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Gasto_en_vivienda) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Gasto_en_vivienda",
+       x=NULL,
+       y=NULL,
+       title="Gasto en vivienda (en porcentaje) en Europa",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+```
+
+## <FONT COLOR="Orange"> 4.2.Ingresos:Ing. familiares netos </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.2.1. Tabla datos. </FONT>
+
+Quizá para muchos individuos el indicador más importante del bienestar de una sociedad son el nivel de ingresos de sus ciudadanos. Pues bien, en este apartado vamos a ver que ciudadanos europeos son los más *"afortunados"*.
+
+Luxemburgo, Suiza y Alemania lideran este ranking. No hay sorpresas.
+
+Los países del este de Europa (últimos en entrar en la UE) y Grecia están a la cola.
+
+España se encuentra en la mitad de la tabla pero muy distanciado de la media de los países que pertenecen a la OCDE. 
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_ing <- df_  %>% select(Paises,Ingreso_familiar_disponible)%>% arrange(desc(Ingreso_familiar_disponible))
+
+df_ing <- na.omit(df_ing)
+
+df_ing %>% gt()
+
+```
+
+
+### <FONT COLOR="Orange"> 4.2.2. Gráfica. </FONT>
+
+Aquí muestro la tabla del primer apartado en un gráfico de barras.
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_ing <- df_  %>% select(Paises,Ingreso_familiar_disponible,Patrimonio_familia)
+
+df_ing <- na.omit(df_ing)#elimino a los paises que no tengan datos
+
+graficoA <- ggplot(df_ing, aes(forcats::fct_reorder(Paises, Ingreso_familiar_disponible), Ingreso_familiar_disponible)) +
+  geom_col(aes(fill = Ingreso_familiar_disponible))+ coord_flip()+ 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6), panel.background = NULL)+
+  labs(title = "Ingresos familiares disponibles (en dólares)", subtitle = "Por países", caption="Fuente: OCDE") + 
+  labs(x = NULL, y = NULL)+ transition_reveal(Ingreso_familiar_disponible)
+
+graficoA + theme(legend.position = "none")
+``` 
+
+                 
+### <FONT COLOR="Orange"> 4.2.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa. Podemos observar que los países centroeuropeos y losdel norte de europa son los más afortunados.
+
+```{r eval = TRUE, echo = FALSE}
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_ing, by = c("region"="Paises"))
+
+
+mapaplot2 <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Ingreso_familiar_disponible) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Ingreso_familiar_disponible",
+       x=NULL,
+       y=NULL,
+       title="Ingresos familiares netos (en dólares) en la UE",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot2 + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.2.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_ing <- df_  %>% select(Paises,Ingreso_familiar_disponible)%>% arrange(desc(Ingreso_familiar_disponible))
+
+df_ing <- na.omit(df_ing)
+
+df_ing %>% gt()
+
+#Así he hecho el gráfico
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_ing <- df_  %>% select(Paises,Ingreso_familiar_disponible,Patrimonio_familia)
+
+df_ing <- na.omit(df_ing)
+
+graficoA <- ggplot(df_ing, aes(forcats::fct_reorder(Paises, Ingreso_familiar_disponible), Ingreso_familiar_disponible)) +
+  geom_col(aes(fill = Ingreso_familiar_disponible))+ coord_flip()+ 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6), panel.background = NULL)+
+  labs(title = "Ingresos familiares disponibles (en dólares)", subtitle = "Por países", caption="Fuente: OCDE") + 
+  labs(x = NULL, y = NULL)+ transition_reveal(Ingreso_familiar_disponible)
+
+graficoA + theme(legend.position = "none")
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_ing, by = c("region"="Paises"))
+
+
+mapaplot2 <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Ingreso_familiar_disponible) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Ingreso_familiar_disponible",
+       x=NULL,
+       y=NULL,
+       title="Ingresos familiares netos (en dólares) en la UE",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot2 + scale_fill_viridis_c(direction = -1)
+
+
+```
+
+## <FONT COLOR="Orange"> 4.3. Empleo: Tasa de empleo </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.3.1. Tabla datos. </FONT>
+
+> “El trabajo es salud” 
+
+¿Quién no ha escuchado alguna vez este dicho? Está claro que el trabajo, es salud, no solo física, sino mental. Además proporciona ingresos fundamentales para vivir y si  ofrece una buena remuneración, el acceso a la educación, salud, ocio... etc, es más fácil.
+
+Suiza, Suecia, Holanda, Alemania y Reino Unido son los países europeos con tasas de empleo más altas.
+
+A la cola, los países mediterráneos del sur de Europa, entre ellos **España**.
+
+
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Tasa_empleo,Ingresos_personales)%>% arrange(desc(Tasa_empleo))
+
+df_empleo <- na.omit(df_empleo)
+
+kable(df_empleo) %>%
+  kableExtra::kable_styling(fixed_thead = list(enabled = T, background = "lightblue"))
+```
+
+
+### <FONT COLOR="Orange"> 4.3.2. Gráfica. </FONT>
+
+En el análisis gráfico hemos relacionado los ingresos de los ciudadanos de cada país con la tasa de empleo, con el objetivo de estudiar si hay algún tipo de relación. No está muy clara.
+
+Lo que si que vemos clara es la relación existente entre la inseguridad en el empleo y la tasa de empleo. A menor tasa de empleo, mayor inseguridad (miedo a perder el empleo).
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Inseguridad_en_empleo,Tasa_empleo,Tasa_empleo_LP, Ingresos_personales)
+
+df_empleo <- na.omit(df_empleo)
+
+ggplot(df_empleo, aes(Tasa_empleo, Inseguridad_en_empleo, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_empleo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_empleo, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre inseguridad de empleo y tasa empleo" ,
+       y = "Inseguridad en el empleo",
+       x = "Tasa de empleo",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_minimal()
+
+``` 
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Inseguridad_en_empleo,Tasa_empleo,Tasa_empleo_LP, Ingresos_personales)
+
+df_empleo <- na.omit(df_empleo)
+
+p <- ggplot(df_empleo, aes(Ingresos_personales,Tasa_empleo)) + 
+  geom_point(aes(color = Paises)) + geom_point(data = filter(df_empleo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_empleo, Paises == "OECD - Total"), colour = "violet", size = 6)+ 
+  labs(title = "Relación entre ingresos personales y tasa de empleo" ,
+       y = "Tasa de empleo",
+       x = "Ingresos personales (en dólares)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ theme_minimal()
+
+p+annotate(geom = "curve", x = 38507, y = 62, xend = 40000, yend = 65, 
+             curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+    annotate(geom = "text", x = 39000, y = 66, label = "Spain", hjust = "left")+
+    annotate(geom = "curve", x = 43241, y = 68, xend = 44000, yend = 71, 
+             curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+    annotate(geom = "text", x = 43000, y = 72, label = "OCDE", hjust = "left")    
+    
+``` 
+
+### <FONT COLOR="Orange"> 4.3.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa, podemos apreciar lo comentado en el primer apartado: conforme vas avanzando hacia al sur de Europa, el nivel de empleo es menor.
+
+```{r eval = TRUE, echo = FALSE}
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_empleo, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Tasa_empleo) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Tasa_empleo",
+       x=NULL,
+       y=NULL,
+       title="Tasa de empleo (en porcentaje) en la UE",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.3.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Tasa_empleo,Ingresos_personales)%>% arrange(desc(Tasa_empleo))
+
+df_empleo <- na.omit(df_empleo)
+
+kable(df_empleo) %>%
+  kableExtra::kable_styling(fixed_thead = list(enabled = T, background = "lightblue"))
+
+#Así he hecho el primer gráfico 
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Inseguridad_en_empleo,Tasa_empleo,Tasa_empleo_LP, Ingresos_personales)
+
+df_empleo <- na.omit(df_empleo)
+
+ggplot(df_empleo, aes(Tasa_empleo, Inseguridad_en_empleo, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_empleo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_empleo, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre inseguridad de empleo y tasa empleo" ,
+       y = "Inseguridad en el empleo",
+       x = "Tasa de empleo",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_minimal()
+
+#Así he hecho el segundo gráfico 
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_empleo <- df_  %>% select(Paises,Inseguridad_en_empleo,Tasa_empleo,Tasa_empleo_LP, Ingresos_personales)
+
+df_empleo <- na.omit(df_empleo)
+p <- ggplot(df_empleo, aes(Ingresos_personales, Tasa_empleo)) + 
+  geom_point(aes(color = Paises)) + geom_point(data = filter(df_empleo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_empleo, Paises == "OECD - Total"), colour = "violet", size = 6)+ 
+  labs(title = "Relación entre ingresos personales y tasa de empleo" ,
+       y = "Tasa de empleo",
+       x = "Ingresos personales (en dólares)")+
+  geom_smooth()+ theme_minimal()
+
+p+annotate(geom = "curve", x = 38507, y = 62, xend = 40000, yend = 65, 
+             curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+    annotate(geom = "text", x = 39000, y = 66, label = "Spain", hjust = "left")+
+    annotate(geom = "curve", x = 43241, y = 68, xend = 44000, yend = 71, 
+             curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+    annotate(geom = "text", x = 43000, y = 72, label = "OCDE", hjust = "left")    
+    
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_empleo, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Tasa_empleo) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Tasa_empleo",
+       x=NULL,
+       y=NULL,
+       title="Tasa de empleo (en porcentaje) en la UE",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+```
+
+## <FONT COLOR="Orange"> 4.4. Comunidad: Apoyo social </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.4.1. Tabla datos. </FONT>
+
+Un apoyo social y familiar es fundamental para el desarrollo tanto personal como profesional de los individuos. Las sociedades más individualistas, son sociedades con un menor bienestar social y económico.
+
+De nuevo vemos a los países del norte de Europa liderando esta clasificación. Clasificación donde España se encuentra en una buena situación comparado con otros países europeos.
+
+Me llama la atención la posición de Grecia en este ranking. Por su carácter mediterráneo (más familiar) nunca hubiese sospechado que se encontrase en última posición.
+
+
+```{r eval = TRUE, echo = FALSE}
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_social <- df_  %>% select(Paises,Calidad_apoyo_social, Ingresos_personales) %>% arrange(desc(Calidad_apoyo_social)) 
+
+df_social <- na.omit(df_social)
+
+df_social %>% gt()
+
+```
+
+
+### <FONT COLOR="Orange"> 4.4.2. Gráfica. </FONT>
+
+En el análisis gráfico hemos relacionado los ingresos de los ciudadanos de cada país con la tasa de empleo, con el objetivo de estudiar si hay algún tipo de relación. Parece clara: a mayor apoyo social mayores ingresos.
+
+```{r eval = TRUE, echo = FALSE}
+
+ggplot(df_social, aes(forcats::fct_reorder(Paises, Calidad_apoyo_social), Calidad_apoyo_social)) +
+  geom_col(aes(fill = Calidad_apoyo_social))+ coord_flip()+ 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6), panel.background = NULL)+
+  labs(title = "Calidad de apoyo social (en porcentaje)", subtitle = "Por países",caption = "Fuente OCDE") + 
+  labs(x = NULL, y = NULL)+ theme(legend.position = "none")
+
+``` 
+
+```{r eval = TRUE, echo = FALSE}
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_social <- df_  %>% select(Paises,Calidad_apoyo_social, Ingresos_personales) %>% arrange(desc(Calidad_apoyo_social))
+
+df_social <- na.omit(df_social)
+
+ggplot(df_social, aes(Calidad_apoyo_social, Ingresos_personales)) + 
+  geom_point(aes(color = Paises)) + geom_point(data = filter(df_social, Paises == "Spain"), colour = "pink", size = 6)+ geom_smooth()+ theme_calc()+
+  labs(title = "Calidad de apoyo social VS Ingresos",caption = "Fuente OCDE")+ 
+  labs(x ="Calidad apoyo social (en porcentaje)", y = "Ingresos personales (en dólares)") 
+
+``` 
+
+### <FONT COLOR="Orange"> 4.4.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa, queda de la siguiente manera:
+
+```{r eval = TRUE, echo = FALSE}
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_social, by = c("region"="Paises"))
+
+
+mapaplot2 <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Ingresos_personales) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Calidad_apoyo_social",
+       x=NULL,
+       y=NULL,
+       title="Calidad de Apoyo Social (en porcentaje)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot2 + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.4.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_social <- df_  %>% select(Paises,Calidad_apoyo_social, Ingresos_personales)
+
+df_social <- na.omit(df_social)
+
+df_social %>% gt()
+
+#Así he hecho el primer gráfico 
+
+ggplot(df_social, aes(forcats::fct_reorder(Paises, Calidad_apoyo_social), Calidad_apoyo_social)) +
+  geom_col(aes(fill = Calidad_apoyo_social))+ coord_flip()+ 
+  theme(axis.text.x = element_text(angle=90, vjust=0.6), panel.background = NULL)+
+  labs(title = "Calidad de apoyo social (en porcentaje)", subtitle = "Por países",caption = "Fuente OCDE") + 
+  labs(x = NULL, y = NULL)+ theme(legend.position = "none")
+
+#Así he hecho el segundo gráfico
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_social <- df_  %>% select(Paises,Calidad_apoyo_social, Ingresos_personales) %>% arrange(desc(Calidad_apoyo_social))
+
+df_social <- na.omit(df_social)
+
+ggplot(df_social, aes(Calidad_apoyo_social, Ingresos_personales)) + 
+  geom_point(aes(color = Paises)) + geom_point(data = filter(df_social, Paises == "Spain"), colour = "pink", size = 6)+ geom_smooth()+ theme_calc()+
+  labs(title = "Calidad de apoyo social VS Ingresos",caption = "Fuente OCDE")+ 
+  labs(x ="Calidad apoyo social (en porcentaje)", y = "Ingresos personales (en dólares)") 
+
+p + annotate(geom = "curve", x = 38507, y = 92, xend = 40000, yend = 94, 
+                      curvature = .3, arrow = arrow(length = unit(2, "mm"))) +
+           annotate(geom = "text", x = 39000, y = 94, label = "España", hjust = "left")
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_social, by = c("region"="Paises"))
+
+
+mapaplot2 <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Ingresos_personales) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Calidad_apoyo_social",
+       x=NULL,
+       y=NULL,
+       title="Calidad de Apoyo Social (en porcentaje)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot2 + scale_fill_viridis_c(direction = -1)
+```
+
+## <FONT COLOR="Orange"> 4.5. Educación: Nivel de educación </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.5.1. Tabla datos. </FONT>
+
+Una sociedad educada, es una sociedad desarrollada. El nivel de educación es fundamental en el desarrollo a LP de un país. 
+
+Los países que lideran este indicador son los países del Este de Europa, seguidos de los norte-europeos.
+
+A la cola, como en otros indicadores, los países mediterráneos del sur de Europa (España, Italia y Grecia).
+
+
+```{r eval = TRUE, echo = FALSE}
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_educa <- df  %>% select(Paises, Ingresos_personales,Nivel_educacion, Años_de_educación, Habilidades_de_estudiantes) %>% arrange(desc(Nivel_educacion))
+
+df_educa <- na.omit(df_educa)
+
+knitr::kable(df_educa, format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+### <FONT COLOR="Orange"> 4.5.2. Gráfica. </FONT>
+
+La gráfica nos indica que no hay una relación directa, por lo menos a CP, entre nivel de educación e ingresos. Aunque diversos estudios indican que si ese nivel de educación alto se mantiene en el LP, el nivel de desarrollo de esa sociedad crecerá.
+
+```{r eval = TRUE, echo = FALSE}
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_educa <- df  %>% select(Paises, Ingresos_personales,Nivel_educacion, Años_de_educación, Habilidades_de_estudiantes)
+
+df_educa <- na.omit(df_educa)
+
+ggplot(df_educa, aes(Ingresos_personales, Nivel_educacion, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_educa, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_educa, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y nivel de educación" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Nivel de educación (sobre base 100)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_economist()
+
+
+``` 
+
+### <FONT COLOR="Orange"> 4.5.3. Mapa. </FONT>
+
+Vemos claramente la diferencia en niveles de educación entre el sur y el norte-este de Europa.
+
+```{r eval = TRUE, echo = FALSE}
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_educa, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Nivel_educacion) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Nivel_educacion",
+       x=NULL,
+       y=NULL,
+       title="Nivel de educación (sobre base 100)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.5.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_educa <- df  %>% select(Paises, Ingresos_personales,Nivel_educacion, Años_de_educación, Habilidades_de_estudiantes) %>% arrange(desc(Nivel_educacion))
+
+df_educa <- na.omit(df_educa)
+
+knitr::kable(df_educa)
+
+#Así he hecho el gráfico 
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_educa <- df  %>% select(Paises, Ingresos_personales,Nivel_educacion, Años_de_educación, Habilidades_de_estudiantes)
+
+df_educa <- na.omit(df_educa)
+
+ggplot(df_educa, aes(Ingresos_personales, Nivel_educacion, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_educa, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_educa, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y nivel de educación" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Nivel de educación (sobre base 100)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_economist()
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_educa, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Nivel_educacion) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Nivel_educacion",
+       x=NULL,
+       y=NULL,
+       title="Nivel de educación (sobre base 100)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+```
+
+
+## <FONT COLOR="Orange"> 4.6. Satisfacción ante la vida </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.6.1. Tabla datos. </FONT>
+
+Para mí, el indicador más importante (con los ingresos). Es el indicador que mejor refleja el estado de bienestar social de los integrantes de una sociedad y el que sirve de contrapeso entre indicadores de desarrollo de una sociedad  (trabajo-tiempo de ocio).
+
+Los países del norte de Europa y Suiza vuelven a liderar. Esta vez España está en buena posición, cercano a la media de la OCDE.
+
+A la cola, los países del Este de Europa, Grecia y Portugal (éstos dos últimos más golpeados en la última crisis económica-financiera).
+
+
+```{r eval = TRUE, echo = FALSE}
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_satisfaccion <- df  %>% select(Paises, Ingresos_personales,Satisfaccion_vida)%>% arrange(desc(Satisfaccion_vida))
+
+df_satisfaccion <- na.omit(df_satisfaccion)
+
+df_satisfaccion %>% gt()
+
+```
+
+
+### <FONT COLOR="Orange"> 4.6.2. Gráfica. </FONT>
+
+Parece que el dicho que *"el dinero no da la felicidad"* lo vamos a desmentir en este apartado.
+
+Si relacionamos, ingresos con satisfación de vida, nos sale que a mayor ingresos, mayor satisfación de vida para los ciudadanos.
+
+```{r eval = TRUE, echo = FALSE}
+
+ggplot(df_satisfaccion, aes(Ingresos_personales, Satisfaccion_vida, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_satisfaccion, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_satisfaccion, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y satisfacción ante la vida" ,
+       y = "Ingresos personales (en dólares)",
+       x = "satisfacción ante la vida (nota de 1 a 10)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_calc()
+
+``` 
+
+### <FONT COLOR="Orange"> 4.6.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa, queda de la siguiente manera:
+
+```{r eval = TRUE, echo = FALSE}
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_satisfaccion, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Satisfaccion_vida) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Satisfaccion_vida",
+       x=NULL,
+       y=NULL,
+       title="Satisfacción ante la vida (nota del 1 al 10)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.6.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla
+
+df <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_satisfaccion <- df  %>% select(Paises, Ingresos_personales,Satisfaccion_vida) %>% arrange(desc(Satisfaccion_vida))
+
+df_satisfaccion <- na.omit(df_satisfaccion)
+
+df_satisfaccion %>% gt()
+
+#Así he hecho el gráfico 
+
+ggplot(df_satisfaccion, aes(Ingresos_personales, Satisfaccion_vida, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_satisfaccion, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_satisfaccion, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y nivel de educación" ,
+       y = "Ingresos personales (en dólares)",
+       x = "satisfacción ante la vida (nota de 1 a 10)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_calc()
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_satisfaccion, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Satisfaccion_vida) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Satisfaccion_vida",
+       x=NULL,
+       y=NULL,
+       title="Satisfacción ante la vida (nota del 1 al 10)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+```
+
+## <FONT COLOR="Orange"> 4.7. Balance vida-trabajo </FONT> {.tabset}
+
+### <FONT COLOR="Orange"> 4.7.1. Tabla datos. </FONT>
+
+Como contrapeso al nivel de ingresos de los países se encuentra el balance que tienen sus ciudadanos entre ocio y trabajo.
+
+Aquí, los países del sur de Europa salen ganando. Son los que mejor equilibrio entre trabajo y ocio tienen.
+
+En la cola los países del Este de Europa, Austria y Reino Unido.
+
+
+```{r eval = TRUE, echo = FALSE}
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_vida_trabajo <- df_  %>% select(Paises,Tiempo_ocio,Empleados_trabajan_muchas,Ingresos_personales)%>% arrange(desc(Tiempo_ocio))
+
+df_vida_trabajo <- na.omit(df_vida_trabajo)
+
+kable(df_vida_trabajo) %>%
+  kableExtra::kable_styling(fixed_thead = list(enabled = T, background = "lightblue"))
+```
+
+
+### <FONT COLOR="Orange"> 4.7.2. Gráfica. </FONT>
+
+No hay una relación clara entre tiempo de ocio e ingresos.
+
+```{r eval = TRUE, echo = FALSE}
+
+ggplot(df_vida_trabajo, aes(Ingresos_personales, Tiempo_ocio, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_vida_trabajo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_vida_trabajo, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y tiempo de ocio" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Tiempo de ocio (porcentaje)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_clean()
+
+``` 
+
+### <FONT COLOR="Orange"> 4.7.3. Mapa. </FONT>
+
+Si transferimos los datos de la tabla creada en el primer apartado a un mapa, podemos observar una cosa curiosa: invertimos prácticamente el mapa que hemos obtenido en otros indicadores como educación o empleo.
+
+```{r eval = TRUE, echo = FALSE}
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_vida_trabajo, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Tiempo_ocio) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Tiempo_ocio",
+       x=NULL,
+       y=NULL,
+       title="Tiempo de ocio (porcentaje sobre horas totales)",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+``` 
+
+### <FONT COLOR="Orange"> 4.7.4. Chunks. </FONT>
+
+En este apartado se muestran los trozos de código R (chunk) utilizados para hacer la tabla, el gráfico y el mapa. Separándolo de los demás, hace que la lectura del trabajo sea más fácil y amena.
+
+```{r, echo = TRUE, eval = FALSE}
+
+#Así he hecho la tabla 
+
+df_ <- rio::import("./datos/calidadvida_definitivo.csv")
+
+df_vida_trabajo <- df_  %>% select(Paises,Tiempo_ocio,Empleados_trabajan_muchas,Ingresos_personales)%>% arrange(desc(Tiempo_ocio))
+
+df_vida_trabajo <- na.omit(df_vida_trabajo)
+
+kable(df_vida_trabajo) %>%
+  kableExtra::kable_styling(fixed_thead = list(enabled = T, background = "lightblue"))
+
+#Así he hecho el gráfico 
+
+ggplot(df_vida_trabajo, aes(Ingresos_personales, Tiempo_ocio, label = Paises)) + 
+  geom_point() + 
+  geom_point(data = filter(df_vida_trabajo, Paises == "Spain"), colour = "pink", size = 6)+ 
+  geom_point(data = filter(df_vida_trabajo, Paises == "OECD - Total"), colour = "violet", size = 6)+
+  labs(title = "Relación entre ingresos y nivel de educación" ,
+       y = "Ingresos personales (en dólares)",
+       x = "Tiempo de ocio (porcentaje)",
+       caption = "Fuente OCDE")+
+  geom_smooth()+ geom_label_repel()+ theme_clean()
+
+#Así he hecho el mapa
+
+mapadata_UE<- map_data("world") %>% filter(region %in% c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                                                         "Czech Republic","Denmark","Estonia","Finland","France",
+                                                         "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                                                         "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                                                         "Portugal","Romania","Slovakia","Slovenia","Spain",
+                                                         "Sweden","UK","Switzerland","Bosnia and Herzegovina","Serbia","Ukraine","Belarus","Albania","Montenegro","Kosovo","Macedonia","Moldova"))
+
+mapadata_UE_ <- mapadata_UE %>% mutate(region = case_when(
+  region == "UK" ~ "United Kingdom",
+  TRUE  ~  region ))
+
+mapdata_UE_ <- full_join (mapadata_UE_,df_vida_trabajo, by = c("region"="Paises"))
+
+mapaplot <- ggplot(mapdata_UE_, aes(x = long, y = lat, group=group, fill = Tiempo_ocio) ) +
+  geom_polygon(color ="#ffffff") +
+  scale_fill_gradient(low = "#313200",high = "#f7ff00") +
+  labs(fill="Tiempo_ocio",
+       x=NULL,
+       y=NULL,
+       title="Tiempo de ocio",
+       caption="Fuente: OCDE") +
+  theme( plot.background = element_rect( fill = "#ffffff"),
+         panel.background = element_rect( fill = "cornsilk2", colour = "lavenderblush", size = 0.1 ),
+         panel.grid  = element_line( colour ="grey"),
+         axis.ticks = element_blank(),
+         axis.text = element_blank(),
+         plot.title = element_text(hjust = 0.5),
+         panel.border = element_rect(fill = NA,colour = "black"),
+         legend.background = element_rect( fill = "cornsilk2", colour = "black" ),
+         plot.margin = margin(t = 5, r = 5, b = 5,10) )
+
+mapaplot + scale_fill_viridis_c(direction = -1)
+
+```
+
+# <FONT COLOR="Orange">5. Conlusión. </FONT>
+
+> “La verdadera felicidad social consiste en la armonía y en el uso pacífico de las satisfacciones de cada individuo.” — Marlene Dietrich.
+
+```{r eval = TRUE, echo = FALSE}
+
+knitr::include_graphics(here::here("imagenes", "hombre_feliz.jpg")  )
+
+```
+
+<div style="text-align: justify">
+
+A menudo pensamos que una sociedad rica, es una sociedad feliz. Nada más lejos de la realidad. Ejemplos como el de Japón o Corea del Sur (no analizados en el presente trabajo) son un buen ejemplo de ello. Datos ofrecidos por este informe de la OCDE demuestran que sus habitantes, pese a tener un buen nivel económico, están menos satisfechos con su vida que otros países con menores ingresos. Factores influyentes en esta percepción que tiene  sus habitantes, pueden ser los malos datos que muestran, ambas economías, en el balance entre vida y trabajo.
+
+A nivel europeo, objeto de este estudio, los países que salen ganadores, si se me permite esta licencia, son claramente los países nórdicos. Ocupan los primeros puestos en casi todas las variables, incluso en las que no están directamente relacionadas con los ingresos (educación, apoyo social o satisfacción ante la vida), por encima de países que tienen mayores ingresos per cápita (Luxemburgo, Suiza, Allemania).
+
+Pese a lo que se podía esperar, nuestro país no sale mal parado del todo en este estudio porque pese los malos datos en algunos indicadores como educación, empleo o ingresos, se encuentra en la media de la OCDE en el más importante, en mi opinión: satisfacción ante la vida de sus ciudadanos. Destacan también en apoyo social y balance entre el tiempo de ocio y trabajo.
+
+El punto más positivo de este Índice es que cada persona, en función del valor que le da a cada uno de las 11 variables, puede ver en que país encajaría mejor. La felicidad es enormemente subjetiva. Lo que puede hacer feliz a una sociedad, puede no hacérselo a otra. Esto para mí es una de las claves por lo que es injusto medir el desarrollo de un país solo por la tasa de crecimiento del PIB per cápita.
+
+<div/>
+
+# <FONT COLOR="Orange">6. Bibliografía. </FONT>
+
+[Página web del Índice para una Vida Mejor](http://www.oecdbetterlifeindex.org/es/#/11111111111)
+
+Tutoriales de profesar de Universidad de Valencia, [D.Pedro J. Pérez ](https://perezp44.github.io/intro-ds-20-21-web/index.html) 
+
+[Vídeo explicativo de Rafa González Gouveia sobre como animar las gráficas](https://www.youtube.com/watch?v=pnSMtc1PH_w)
+
+Datos del dataframe y geometrias dados en clase por D.Pedro J. Pérez.
+
+[Me ha inspirado mi anterior trabajo en grupo: "La incidencia del Covid-19 en la Comunidad Valenciana"](https://miguercios.github.io/trabajo_BigData_equipo/) 
+
+[Aquí aprendí como quitar valores nulos de las filas](https://www.diegocalvo.es/eliminar-na-o-valores-nulos-en-r/)
+
+```{r eval = TRUE, echo = FALSE}
+sessioninfo::session_info() %>% details::details(summary = 'current session info')
+```
